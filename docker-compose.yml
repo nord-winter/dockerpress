@@ -1,0 +1,462 @@
+services:
+  # ============================================
+  # WORDPRESS STACK (Bedrock)
+  # ============================================
+  
+  wordpress:
+    build:
+      context: ./.docker/wordpress
+      dockerfile: Dockerfile
+    container_name: dockerpress_wordpress
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      # Database
+      DB_HOST: mariadb:3306
+      DB_NAME: wordpress
+      DB_USER: wordpress
+      DB_PASSWORD: ${DB_PASSWORD:-wordpress_secure_pass}
+      
+      # WordPress URLs
+      WP_HOME: ${WP_HOME:-http://localhost:8080}
+      WP_SITEURL: ${WP_SITEURL:-http://localhost:8080/wp}
+      
+      # WordPress Keys (generate new ones!)
+      AUTH_KEY: ${AUTH_KEY:-generateme}
+      SECURE_AUTH_KEY: ${SECURE_AUTH_KEY:-generateme}
+      LOGGED_IN_KEY: ${LOGGED_IN_KEY:-generateme}
+      NONCE_KEY: ${NONCE_KEY:-generateme}
+      AUTH_SALT: ${AUTH_SALT:-generateme}
+      SECURE_AUTH_SALT: ${SECURE_AUTH_SALT:-generateme}
+      LOGGED_IN_SALT: ${LOGGED_IN_SALT:-generateme}
+      NONCE_SALT: ${NONCE_SALT:-generateme}
+      
+      # Environment
+      WP_ENV: ${WP_ENV:-development}
+      WP_DEBUG: ${WP_DEBUG:-true}
+      WP_DEBUG_LOG: ${WP_DEBUG_LOG:-true}
+      WP_DEBUG_DISPLAY: ${WP_DEBUG_DISPLAY:-false}
+      
+      # Cache
+      WP_CACHE: true
+      REDIS_HOST: keydb
+      REDIS_PORT: 6379
+      
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
+    depends_on:
+      - mariadb
+      - keydb
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=wordpress"
+
+  # ============================================
+  # DATABASE - MariaDB
+  # ============================================
+  
+  mariadb:
+    image: mariadb:11.2
+    container_name: dockerpress_mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secure_pass}
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${DB_PASSWORD:-wordpress_secure_pass}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./scripts/mariadb-tuning.cnf:/etc/mysql/conf.d/tuning.cnf:ro
+    command: 
+      - '--character-set-server=utf8mb4'
+      - '--collation-server=utf8mb4_unicode_ci'
+      - '--max-connections=200'
+      - '--innodb-buffer-pool-size=256M'
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=mariadb"
+
+  # ============================================
+  # CACHE - KeyDB
+  # ============================================
+  
+  keydb:
+    image: eqalpha/keydb:latest
+    container_name: dockerpress_keydb
+    restart: always
+    command: 
+      - 'keydb-server'
+      - '--server-threads 4'
+      - '--appendonly yes'
+      - '--maxmemory 256mb'
+      - '--maxmemory-policy allkeys-lru'
+    volumes:
+      - keydb_data:/data
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+        labels: "service=keydb"
+
+  # ============================================
+  # DATABASE MANAGEMENT - Adminer
+  # ============================================
+  
+  adminer:
+    image: adminer:latest
+    container_name: dockerpress_adminer
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mariadb
+      ADMINER_DESIGN: nette
+    depends_on:
+      - mariadb
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # DOCKER MANAGEMENT - Portainer
+  # ============================================
+  
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: dockerpress_portainer
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # REVERSE PROXY - Nginx
+  # ============================================
+  
+  nginx:
+    image: nginx:alpine
+    container_name: dockerpress_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - wordpress_data:/var/www/html:ro
+    depends_on:
+      - wordpress
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=nginx"
+
+  # ============================================
+  # CLI TOOLS - WP-CLI
+  # ============================================
+  
+  wpcli:
+    image: wordpress:cli
+    container_name: dockerpress_wpcli
+    user: "33:33"
+    volumes:
+      - wordpress_data:/var/www/html
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD:-wordpress_secure_pass}
+      WORDPRESS_DB_NAME: wordpress
+    depends_on:
+      - wordpress
+      - mariadb
+    networks:
+      - dockerpress_network
+    command: tail -f /dev/null
+
+  # ============================================
+  # NODE.JS - For Sage Theme Development
+  # ============================================
+  
+  node:
+    image: node:20-alpine
+    container_name: dockerpress_node
+    working_dir: /var/www/html/web/app/themes/sage
+    volumes:
+      - wordpress_data:/var/www/html
+    command: sh -c "npm install && npm run dev"
+    networks:
+      - dockerpress_network
+    profiles:
+      - development
+
+  # ============================================
+  # EMAIL TESTING - Mailhog
+  # ============================================
+  
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: dockerpress_mailhog
+    restart: always
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # SECURITY - Fail2Ban
+  # ============================================
+  
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: dockerpress_fail2ban
+    restart: always
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - /var/log:/var/log:ro
+      - ./fail2ban:/data
+      - fail2ban_data:/data/db
+    environment:
+      - TZ=UTC
+      - F2B_LOG_LEVEL=INFO
+      - F2B_DB_PURGE_AGE=30d
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # LOGGING - Loki
+  # ============================================
+  
+  loki:
+    image: grafana/loki:latest
+    container_name: dockerpress_loki
+    restart: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # LOG COLLECTOR - Promtail
+  # ============================================
+  
+  promtail:
+    image: grafana/promtail:latest
+    container_name: dockerpress_promtail
+    restart: always
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/promtail-config.yml
+    depends_on:
+      - loki
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # METRICS - Prometheus
+  # ============================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dockerpress_prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # METRICS EXPORTER - Node Exporter
+  # ============================================
+  
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: dockerpress_node_exporter
+    restart: always
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    volumes:
+      - '/:/host:ro,rslave'
+    networks:
+      - dockerpress_network
+
+  # ============================================
+  # CONTAINER METRICS - cAdvisor
+  # ============================================
+  
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: dockerpress_cadvisor
+    restart: always
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - dockerpress_network
+
+  # ============================================
+  # VISUALIZATION - Grafana
+  # ============================================
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dockerpress_grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=redis-datasource
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - dockerpress_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  # BACKUP SERVICE
+  # ============================================
+  
+  backup:
+    image: mariadb:11.2
+    container_name: dockerpress_backup
+    restart: always
+    environment:
+      MYSQL_HOST: mariadb
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${DB_PASSWORD:-wordpress_secure_pass}
+      MYSQL_DATABASE: wordpress
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+      - wordpress_data:/var/www/html:ro
+    command: /bin/bash -c "while true; do sleep 86400; /backup.sh; done"
+    depends_on:
+      - mariadb
+    networks:
+      - dockerpress_network
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+  wordpress_data:
+    driver: local
+  mariadb_data:
+    driver: local
+  keydb_data:
+    driver: local
+  portainer_data:
+    driver: local
+  loki_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  fail2ban_data:
+    driver: local
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+  dockerpress_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

@@ -1,0 +1,74 @@
+# DockerPress Project Structure
+
+```
+dockerpress/
+│
+├── 📄 Core Files
+│   ├── docker-compose.yml          # Main Docker Compose configuration
+│   ├── .env.example                # Environment variables template
+│   ├── uploads.ini                 # PHP upload configuration
+│   ├── start.sh                    # Quick start script
+│   ├── check.sh                    # System health check script
+│   ├── .gitignore                  # Git ignore rules
+│   └── LICENSE                     # MIT License
+│
+├── 📚 Documentation
+│   ├── README.md                   # Main documentation (Russian)
+│   ├── README.en.md                # Documentation (English)
+│   ├── README.github.md            # GitHub-enhanced README
+│   ├── QUICK-REFERENCE.md          # Quick command reference
+│   ├── CONTRIBUTING.md             # Contribution guidelines
+│   ├── CHANGELOG.md                # Version history
+│   └── PROJECT-STRUCTURE.txt       # This file
+│
+├── 🐳 Docker Configuration
+│   └── .docker/
+│       └── wordpress/
+│           └── Dockerfile          # Bedrock WordPress image
+│
+├── 🌐 Nginx Configuration
+│   └── nginx/
+│       ├── nginx.conf              # Main Nginx config
+│       ├── conf.d/
+│       │   └── wordpress.conf      # WordPress site config
+│       └── ssl/                    # SSL certificates (add your own)
+│
+├── 📊 Monitoring - Grafana
+│   └── grafana/
+│       ├── provisioning/
+│       │   ├── datasources/
+│       │   │   └── datasources.yml # Auto-configure data sources
+│       │   └── dashboards/
+│       │       └── dashboards.yml  # Dashboard provisioning
+│       └── dashboards/
+│           └── dockerpress-overview.json  # Main dashboard
+│
+├── 📈 Monitoring - Prometheus
+│   └── prometheus/
+│       └── prometheus.yml          # Prometheus configuration
+│
+├── 📝 Logging - Loki
+│   └── loki/
+│       └── loki-config.yml         # Loki configuration
+│
+├── 📡 Logging - Promtail
+│   └── promtail/
+│       └── promtail-config.yml     # Promtail configuration
+│
+├── 🔒 Security - Fail2Ban
+│   └── fail2ban/                   # Fail2Ban data (auto-created)
+│
+├── 🛠️ Scripts
+│   └── scripts/
+│       ├── backup.sh               # Automatic backup script
+│       └── mariadb-tuning.cnf      # MariaDB optimization
+│
+└── 💾 Data Directories (auto-created)
+    └── backups/
+        ├── database/               # Database backups
+        └── files/                  # WordPress files backups
+```
+
+## Total Files: 25+ configuration files
+## Services: 16 Docker containers
+## Documentation: 7 comprehensive guides

@@ -1,0 +1,40 @@
+[mysqld]
+# Connection Settings
+max_connections = 200
+max_connect_errors = 1000
+wait_timeout = 600
+interactive_timeout = 600
+
+# InnoDB Settings
+innodb_buffer_pool_size = 256M
+innodb_buffer_pool_instances = 2
+innodb_log_file_size = 64M
+innodb_log_buffer_size = 8M
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_file_per_table = 1
+
+# Query Cache (disabled in MariaDB 10.10+, but kept for compatibility)
+query_cache_size = 0
+query_cache_type = 0
+
+# Temporary Tables
+tmp_table_size = 32M
+max_heap_table_size = 32M
+
+# Slow Query Log
+slow_query_log = 1
+slow_query_log_file = /var/lib/mysql/slow-query.log
+long_query_time = 2
+
+# Binary Logging (for backups/replication)
+log_bin = /var/lib/mysql/mysql-bin
+expire_logs_days = 7
+max_binlog_size = 100M
+
+# Character Set
+character_set_server = utf8mb4
+collation_server = utf8mb4_unicode_ci
+
+# Performance Schema
+performance_schema = ON

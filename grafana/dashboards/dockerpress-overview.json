@@ -1,0 +1,59 @@
+{
+  "dashboard": {
+    "title": "DockerPress Overview",
+    "tags": ["dockerpress", "wordpress", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Container Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "count(container_last_seen)",
+            "legendFormat": "Running Containers"
+          }
+        ]
+      },
+      {
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{name=~\"dockerpress.*\"}[5m])",
+            "legendFormat": "{{name}}"
+          }
+        ]
+      },
+      {
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{name=~\"dockerpress.*\"}",
+            "legendFormat": "{{name}}"
+          }
+        ]
+      },
+      {
+        "title": "Recent Logs",
+        "type": "logs",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "{service=~\"wordpress|nginx|mariadb\"}"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "wrapLogMessage": true
+        }
+      }
+    ],
+    "refresh": "30s",
+    "time": {"from": "now-1h", "to": "now"}
+  }
+}
