@@ -221,7 +221,6 @@ docker-compose up -d
 ## 📚 Documentation
 
 - [📖 Quick Reference](QUICK-REFERENCE.md) - Common commands and tasks
-- [🌍 Russian README](README.md) - Full documentation in Russian
 - [🇬🇧 English README](README.en.md) - Full documentation in English
 - [🤝 Contributing](CONTRIBUTING.md) - How to contribute
 - [📋 Changelog](CHANGELOG.md) - Version history
