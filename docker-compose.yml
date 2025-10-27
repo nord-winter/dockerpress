@@ -351,7 +351,7 @@ services:
       - '--path.rootfs=/host'
     pid: host
     volumes:
-      - '/:/host:ro,rslave'
+      - '/:/host:ro'
     networks:
       - dockerpress_network
 
